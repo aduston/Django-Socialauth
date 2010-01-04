@@ -9,8 +9,8 @@ from django.conf import settings
 CALLBACK_URL = 'http://example.com/newaccounts/login/done/'
 
 REQUEST_TOKEN_URL = 'https://twitter.com/oauth/request_token'
-ACCESS_TOKEN_URL = 'https://twitter.com/oauth/access_token'
 AUTHORIZATION_URL = 'http://twitter.com/oauth/authorize'
+ACCESS_TOKEN_URL = 'https://twitter.com/oauth/access_token'
 
 #CONSUMER_KEY = settings.TWITTER_CONSUMER_KEY
 #CONSUMER_SECRET = settings.TWITTER_CONSUMER_SECRET
@@ -27,8 +27,11 @@ class TwitterOAuthClient(oauth.OAuthClient):
         self.access_token_url = access_token_url
         self.authorization_url = authorization_url
 
-    def fetch_request_token(self):
-        oauth_request = oauth.OAuthRequest.from_consumer_and_token(self.consumer, http_url=self.request_token_url)
+    def fetch_request_token(self, callback_url=None):
+        params = {}
+        if callback_url is not None:
+            params = { 'oauth_callback': callback_url }
+        oauth_request = oauth.OAuthRequest.from_consumer_and_token(self.consumer, http_url=self.request_token_url, parameters=params)
         oauth_request.sign_request(self.signature_method, self.consumer, None)
         params = oauth_request.parameters
         data = urllib.urlencode(params)
@@ -44,8 +47,11 @@ class TwitterOAuthClient(oauth.OAuthClient):
         full_url='%s?%s'%(self.authorization_url, data)
         return full_url
 
-    def fetch_access_token(self, token):
-        oauth_request = oauth.OAuthRequest.from_consumer_and_token(self.consumer, token=token, http_url=self.access_token_url)
+    def fetch_access_token(self, token, oauth_verifier=None):
+        params = {}
+        if oauth_verifier is not None:
+            params = { 'oauth_verifier': oauth_verifier }
+        oauth_request = oauth.OAuthRequest.from_consumer_and_token(self.consumer, token=token, http_url=self.access_token_url, parameters=params)
         oauth_request.sign_request(self.signature_method, self.consumer, token)
         params = oauth_request.parameters
         data = urllib.urlencode(params)
