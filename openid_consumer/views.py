@@ -42,7 +42,7 @@ def get_url_host(request):
 def get_full_url(request):
     return get_url_host(request) + request.get_full_path()
 		
-next_url_re = re.compile('^/[-\w/]+$')
+next_url_re = re.compile('^/[-\w/]*$')
 
 def is_valid_next_url(next):
     # When we allow this:
@@ -181,7 +181,10 @@ def default_on_success(request, identity_url, openid_response):
     next = request.GET.get('next', '').strip()
     if not next or not is_valid_next_url(next):
         next = getattr(settings, 'OPENID_REDIRECT_NEXT', '/')
-    
+    else:
+        next = "%s?next=%s" % (getattr(settings, 'OPENID_REDIRECT_NEXT', '/'),
+                               next)
+
     return HttpResponseRedirect(next)
 
 def default_on_failure(request, message, template_name='openid_consumer/failure.html'):

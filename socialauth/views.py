@@ -2,7 +2,7 @@ from django.shortcuts import render_to_response
 from django.template import RequestContext
 from django.contrib.auth.models import UserManager, User
 from django.contrib.auth import authenticate, login
-from django.http import HttpResponseRedirect, HttpResponseForbidden, HttpResponse
+from django.http import HttpResponseRedirect, HttpResponseForbidden, HttpResponse, get_host
 from django.core.urlresolvers import reverse
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
@@ -34,15 +34,26 @@ from datetime import datetime
 from cgi import parse_qs
 import urllib
 
+def get_url_host(request):
+# FIXME: Duplication
+    if request.is_secure():
+        protocol = 'https'
+    else:
+        protocol = 'http'
+    host = get_host(request)
+    return '%s://%s' % (protocol, host)
 
 def login_page(request):
     payload = {'fb_api_key':settings.FACEBOOK_API_KEY,}
     return render_to_response('socialauth/login_page.html', payload, RequestContext(request))
 
-def twitter_login(request, base_url_and_callback=None):
+def twitter_login(request, next=None):
     callback_url = None
-    if base_url_and_callback is not None:
-        callback_url = '%s/twitter_login/done/?next=%s' % (base_url_and_callback[0], urllib.quote(base_url_and_callback[1]))
+    if next is not None:
+        callback_url = '%s%s?next=%s' % \
+	 	    (get_url_host(request),
+			 reverse("socialauth_twitter_login_done"), 
+		     urllib.quote(next))
     twitter = oauthtwitter.TwitterOAuthClient(settings.TWITTER_CONSUMER_KEY, settings.TWITTER_CONSUMER_SECRET)
     request_token = twitter.fetch_request_token(callback_url)
     request.session['request_token'] = request_token.to_string()
@@ -127,10 +138,13 @@ def openid_done(request, provider=None):
         user = authenticate(openid_key=openid_key, request=request, provider = provider)
         if user:
             login(request, user)
-            if 'openid_next' in request.session :
-                openid_next = request.session.get('openid_next')
-                if len(openid_next.strip()) >  0 :
-                    return HttpResponseRedirect(openid_next)    
+            next = None
+            if 'openid_next' in request.session:
+                next = request.session.get('openid_next')
+            if 'next' in request.GET:
+                next = request.GET['next']
+            if next is not None and len(next.strip()) >  0 :
+                return HttpResponseRedirect(next)    
             redirect_url = reverse('socialauth_editprofile')
             return HttpResponseRedirect(redirect_url)
         else:
